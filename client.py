@@ -29,6 +29,7 @@ def looking_for_a_server():
                 continue
             if rcv_message_type != OFFER_MSG_TYPE:
                 continue
+            print("Received offer from " + str(server_ip) + ", attempting to connect...")
             break
         return server_ip, server_port
         
@@ -38,7 +39,7 @@ def connecting_to_server(serverAddress):
     client_tcp_socket = socket(AF_INET, SOCK_STREAM)
     try:
         client_tcp_socket.connect(serverAddress)
-    except socket.error as err_msg:
+    except error as err_msg:
         print("Couldn't connect to " + str(serverAddress) + ", error: " + str(err_msg))
         print("Looking for another server...")
         return None
@@ -52,6 +53,6 @@ def game_mode(tcp_socket):
         print(start_game_msg.decode())
         
         
-    except socket.error as err_msg:
+    except error as err_msg:
         tcp_socket.close()
         print("socket error: " + err_msg)
