@@ -6,7 +6,7 @@ from struct import pack, unpack
 
 CLIENT_NAME= "CyberPunk2077"
 source_port = 13117 
-FORMAT = 'ich'
+FORMAT = 'IBH'
 MAGIC_COOKIE = 0xfeedbeef
 OFFER_MSG_TYPE = 0x02
 BUFFER_SIZE = 2048
