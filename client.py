@@ -117,3 +117,6 @@ def game_mode(tcp_socket):
 
     print("Server disconnected, listening for offer requests...")
     tcp_socket.close()
+
+if __name__ == "__main__":
+    client_states()
