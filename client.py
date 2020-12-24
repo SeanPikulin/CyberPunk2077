@@ -1,10 +1,10 @@
 import scapy.all
-from sys import stdin
+import getch
 from socket import *
 import threading
-from struct import pack, unpack
+from struct import unpack
 
-CLIENT_NAME= "CyberPunk2077"
+CLIENT_NAME= "CyberPunk2077\n"
 source_port = 13117 
 FORMAT = 'IBH'
 MAGIC_COOKIE = 0xfeedbeef
@@ -60,6 +60,7 @@ def connecting_to_server(serverAddress):
         print("Couldn't connect to " + str(serverAddress) + ", error: " + str(err_msg))
         print("Looking for another server...")
         return None
+    print("connected!")
     return client_tcp_socket
 
 
@@ -69,10 +70,9 @@ def connecting_to_server(serverAddress):
     Return: void
                 """
 def get_from_keyboard(socket):
-    with socket:
-        while True:
-            keyboard_in = stdin.read(1)
-            socket.sendall(keyboard_in.encode())
+    while True:
+        keyboard_in = getch.getch()
+        socket.sendall(keyboard_in.encode())
 
 
 
@@ -80,13 +80,12 @@ def get_from_keyboard(socket):
     Args: socket - the TCP socket used to connect the server
     Return: void
                 """
-def get_msg_from_server(socket):
-    with socket:
-        while True:
-            new_msg = socket.recv(BUFFER_SIZE)
-            if not new_msg:
-                break
-            print(new_msg.decode())
+def get_msgs_from_server(socket):
+    while True:
+        new_msg = socket.recv(BUFFER_SIZE)
+        if not new_msg:
+            break
+        print(new_msg.decode())
 
 
 
@@ -96,7 +95,7 @@ def get_msg_from_server(socket):
                 """
 def game_mode(tcp_socket):
     try:
-        tcp_socket.sendall(bytes(CLIENT_NAME + '\n'))
+        tcp_socket.sendall(CLIENT_NAME.encode())
 
         start_game_msg = tcp_socket.recv(BUFFER_SIZE)
         print(start_game_msg.decode())
@@ -107,13 +106,13 @@ def game_mode(tcp_socket):
         return None
         
     get_from_keyboard_thread = threading.Thread(target=get_from_keyboard, args=(tcp_socket,))
-    get_msg_from_server_thread = threading.Thread(target=get_msg_from_server, args=(tcp_socket,))
+    get_msgs_from_server_thread = threading.Thread(target=get_msgs_from_server, args=(tcp_socket,))
         
     get_from_keyboard_thread.start()
-    get_msg_from_server_thread.start()
+    get_msgs_from_server_thread.start()
 
     get_from_keyboard_thread.join()
-    get_msg_from_server_thread.join()
+    get_msgs_from_server_thread.join()
 
     print("Server disconnected, listening for offer requests...")
     tcp_socket.close()
