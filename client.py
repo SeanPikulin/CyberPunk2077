@@ -2,7 +2,10 @@ import scapy.all
 import getch
 from socket import *
 import threading
+from multiprocessing import Process
 from struct import unpack
+import errno
+from pynput.keyboard import Listener, Key, KeyCode
 
 CLIENT_NAME= "CyberPunk2077\n"
 source_port = 13117 
@@ -10,7 +13,6 @@ FORMAT = 'IBH'
 MAGIC_COOKIE = 0xfeedbeef
 OFFER_MSG_TYPE = 0x02
 BUFFER_SIZE = 2048
-
 
 
 """ The main function for transition between the client's states - first looking for a server, then connecting and after it being in game mode
@@ -61,8 +63,15 @@ def connecting_to_server(serverAddress):
         print("Looking for another server...")
         return None
     print("connected!")
+    client_tcp_socket.setblocking(0)
     return client_tcp_socket
 
+
+def on_press(key, tcp_socket):
+    try:
+        tcp_socket.sendall(str(key).encode())
+    except error:
+        return False
 
 
 """ The function for the keyboard thread - reads characters from the keyboard and passes them to the server via the socket
@@ -70,9 +79,9 @@ def connecting_to_server(serverAddress):
     Return: void
                 """
 def get_from_keyboard(socket):
-    while True:
-        keyboard_in = getch.getch()
-        socket.sendall(keyboard_in.encode())
+    
+    with Listener(on_press=lambda key: on_press(key, socket)) as listener:
+        listener.join()
 
 
 
@@ -82,7 +91,14 @@ def get_from_keyboard(socket):
                 """
 def get_msgs_from_server(socket):
     while True:
-        new_msg = socket.recv(BUFFER_SIZE)
+        try:
+            new_msg = socket.recv(BUFFER_SIZE)
+        except error as e:
+            err = e.args[0]
+            if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
+                continue
+            else:
+                break
         if not new_msg:
             break
         print(new_msg.decode())
@@ -94,28 +110,45 @@ def get_msgs_from_server(socket):
     Return: void
                 """
 def game_mode(tcp_socket):
+    is_received = False
     try:
         tcp_socket.sendall(CLIENT_NAME.encode())
 
-        start_game_msg = tcp_socket.recv(BUFFER_SIZE)
-        print(start_game_msg.decode())
-        
     except error as err_msg:
         tcp_socket.close()
         print("socket error: " + err_msg)
         return None
         
+    while not is_received:
+        try:
+            start_game_msg = tcp_socket.recv(BUFFER_SIZE)
+            print(start_game_msg.decode())
+            is_received = True
+            
+        except error as err_msg:
+            err = err_msg.args[0]
+            if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
+                continue
+            else:
+                tcp_socket.close()
+                print("socket error: " + err_msg)
+                return None
+    
     get_from_keyboard_thread = threading.Thread(target=get_from_keyboard, args=(tcp_socket,))
     get_msgs_from_server_thread = threading.Thread(target=get_msgs_from_server, args=(tcp_socket,))
         
     get_from_keyboard_thread.start()
     get_msgs_from_server_thread.start()
 
-    get_from_keyboard_thread.join()
+    print("both threads are running")
     get_msgs_from_server_thread.join()
+    print("only keyboard thread is running")
+    get_from_keyboard_thread.join()
+    print("both threads terminated")
+    tcp_socket.shutdown(SHUT_RDWR)
+    tcp_socket.close()
 
     print("Server disconnected, listening for offer requests...")
-    tcp_socket.close()
 
 if __name__ == "__main__":
     client_states()
