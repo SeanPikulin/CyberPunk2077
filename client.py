@@ -6,6 +6,7 @@ from struct import unpack
 import errno
 from pynput.keyboard import Listener
 from sys import stdout
+from termcolor import colored
 
 CLIENT_NAME= "CyberPunk2077\n"
 source_port = 13117 

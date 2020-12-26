@@ -6,6 +6,7 @@ from random import random
 from time import sleep
 import errno
 from numpy import max
+from termcolor import colored, cprint
 
 group1_names = []
 group2_names = []
@@ -238,7 +239,7 @@ def game_mode():
 
     stop.clear()
     calculate_and_print_winner()
-    print("~~ Statisics from the game ~~")
+    cprint("Statisics from the game", 'blue', attrs=['underline'])
     get_most_points_players()
 
     group1.clear()
