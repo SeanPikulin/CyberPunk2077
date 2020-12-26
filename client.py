@@ -1,11 +1,11 @@
 import scapy.all
-import getch
 from socket import *
 import threading
 from multiprocessing import Process
 from struct import unpack
 import errno
-from pynput.keyboard import Listener, Key, KeyCode
+from pynput.keyboard import Listener
+from sys import stdout
 
 CLIENT_NAME= "CyberPunk2077\n"
 source_port = 13117 
@@ -29,7 +29,7 @@ def client_states():
 
 
 
-""" The function for the first state- client listening for server offer requests in UDP socket 
+""" The function for the first state - client listening for server offer requests in UDP socket 
     Args: no args
     Return: server's ip address, server's port
                                             """
@@ -50,7 +50,7 @@ def looking_for_a_server():
 
 
 
-""" The function for the second state- connect to server 
+""" The function for the second state - connect to server 
     Args: serverAddress - (server_ip, server_port) of the server to connect
     Return: tcp_socket for sending and receiving
                                                 """
@@ -59,29 +59,24 @@ def connecting_to_server(serverAddress):
     try:
         client_tcp_socket.connect(serverAddress)
     except error as err_msg:
-        print("Couldn't connect to " + str(serverAddress) + ", error: " + str(err_msg))
-        print("Looking for another server...")
+        print("Couldn't connect to " + str(serverAddress) + ", error: " + str(err_msg) + "\n")
+        print("Looking for another server...\n")
         return None
-    print("connected!")
+    print("Connected!\n")
     client_tcp_socket.setblocking(0)
     return client_tcp_socket
 
 
+""" The function for the reading from keyboard thread - reads charachters and sends them to the server with the socket
+    Args: key - key that was pressed
+          tcp_socket - the socket that connects to the server
+    Return: False - thrown when the thread stops working
+                                                            """
 def on_press(key, tcp_socket):
     try:
         tcp_socket.sendall(str(key).encode())
     except error:
         return False
-
-
-""" The function for the keyboard thread - reads characters from the keyboard and passes them to the server via the socket
-    Args: socket - TCP socket that connects the client and the server
-    Return: void
-                """
-def get_from_keyboard(socket):
-    
-    with Listener(on_press=lambda key: on_press(key, socket)) as listener:
-        listener.join()
 
 
 
@@ -105,8 +100,8 @@ def get_msgs_from_server(socket):
 
 
 
-""" The function for the third state- game mode in which two threads work in same time - one for keyboard input and the second for receiving server's messages
-    Args: socket - the TCP socket used to connect the server
+""" The function for the third state - game mode in which two threads work in same time - one for keyboard input and the second for receiving server's messages
+    Args: tcp_socket - the TCP socket used to connect the server
     Return: void
                 """
 def game_mode(tcp_socket):
@@ -133,22 +128,22 @@ def game_mode(tcp_socket):
                 tcp_socket.close()
                 print("socket error: " + err_msg)
                 return None
-    
-    get_from_keyboard_thread = threading.Thread(target=get_from_keyboard, args=(tcp_socket,))
-    get_msgs_from_server_thread = threading.Thread(target=get_msgs_from_server, args=(tcp_socket,))
-        
-    get_from_keyboard_thread.start()
-    get_msgs_from_server_thread.start()
 
-    print("both threads are running")
+
+    get_msgs_from_server_thread = threading.Thread(target=get_msgs_from_server, args=(tcp_socket,))
+    listener = Listener(on_press=lambda key: on_press(key, tcp_socket))
+        
+    get_msgs_from_server_thread.start()
+    listener.start()
+
     get_msgs_from_server_thread.join()
-    print("only keyboard thread is running")
-    get_from_keyboard_thread.join()
-    print("both threads terminated")
-    tcp_socket.shutdown(SHUT_RDWR)
+    listener.stop()
+    listener.join()
     tcp_socket.close()
 
-    print("Server disconnected, listening for offer requests...")
+    print("\nServer disconnected, listening for offer requests...")
+
+
 
 if __name__ == "__main__":
     client_states()

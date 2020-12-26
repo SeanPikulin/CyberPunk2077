@@ -5,6 +5,7 @@ from struct import pack
 from random import random
 from time import sleep
 import errno
+from numpy import max
 
 group1_names = []
 group2_names = []
@@ -20,6 +21,11 @@ BUFFER_SIZE = 2048
 FORMAT = 'IBH'
 stop = threading.Event()
 
+
+""" The main function for transition between the server's states - first creating a game, then enter game mode
+    Args: no args
+    Return: void
+                """
 def server_states():
     server_welcome_socket = socket(AF_INET, SOCK_STREAM)
     server_welcome_socket.setblocking(0)
@@ -27,7 +33,15 @@ def server_states():
     while True:
         creating_a_game(server_welcome_socket)
         game_mode()
+    server_welcome_socket.close()
 
+
+
+""" A thread function for sending a single offer 
+    Args: udp_socket - the socket for broadcasting
+          offer_msg - the message (the format detailed in the assignment)
+    Return: void
+                """
 def send_offer(udp_socket, offer_msg):
     try:
         udp_socket.sendto(offer_msg, ('localhost', CLIENT_OFFER_PORT))
@@ -35,6 +49,12 @@ def send_offer(udp_socket, offer_msg):
     except error as err_msg:
         print("socket error: " + err_msg)
 
+
+
+""" The thread function where the server sends offers through UDP 
+    Args: server_port - the TCP port to which the client needs to connect
+    Return: void
+                """
 def send_offers(server_port):
     offer_msg = pack(FORMAT, MAGIC_COOKIE, OFFER_MSG_TYPE, server_port)
     with socket(AF_INET, SOCK_DGRAM) as server_udp_socket:
@@ -43,8 +63,16 @@ def send_offers(server_port):
             send_offers_thread.start()
             send_offers_thread.join()
 
+
+
+""" A thread function that will be activated per client in the client's game mode
+    Args: conn - the TCP socket which the client is connected to
+          index - the pre-defined index of the client in the game data lists
+          group_num - the group that the client was allocated by the server
+    Return: void
+                """
 def client_in_game(conn, index, group_num):
-    msg = "Welcome to Keyboard Spamming Battle Royale.\nGroup 1:\n==\n" + "".join(group1_names) + "\nGroup2:\n==\n" + "".join(group2_names) + "Start pressing keys on your keyboard as fast as you can!!"
+    msg = "Welcome to Keyboard Spamming Battle Royale.\nGroup 1:\n==\n" + "".join(group1_names) + "\nGroup2:\n==\n" + "".join(group2_names) + "\nStart pressing keys on your keyboard as fast as you can!!"
     try:
         conn.sendall(msg.encode())
     except error as err_msg:
@@ -53,9 +81,11 @@ def client_in_game(conn, index, group_num):
         return
 
     conn.setblocking(0)
-    while not is_timeout:
+    while not stop.is_set():
         try:
-            conn.recv(BUFFER_SIZE)
+            x = conn.recv(BUFFER_SIZE)
+            if not x:
+                break
             if group_num == 1:
                 group1_scores[index] += 1
             else:
@@ -67,37 +97,44 @@ def client_in_game(conn, index, group_num):
             else:
                 print("error in receiving character: " + e)
                 break
-    print("close client")
-    conn.shutdown(SHUT_RDWR)
     conn.close()
 
+
+
+""" A thread function to handle a new client
+    Args: conn - the TCP socket which the client is connected to
+          lock1 - a lock to synchronize the access to group 1 data
+          lock2 - a lock to synchronize the access to group 2 data
+    Return: void
+                """
 def init_client(conn, lock1, lock2):
     try:
         client_name = conn.recv(BUFFER_SIZE)
         game_connection_sockets.append(conn)
         if random() < 0.5:
             lock1.acquire()
-            print("acquired")
             client_game_thread = threading.Thread(target=client_in_game, args=(conn,len(group1), 1))
             group1_names.append(client_name.decode())
             group1_scores.append(0)
             group1.append(client_game_thread)
             lock1.release()
-            print("released")
         else:
             lock2.acquire()
-            print("acquired")
             client_game_thread = threading.Thread(target=client_in_game, args=(conn,len(group2), 2))
             group2_names.append(client_name.decode())
             group2_scores.append(0)
             group2.append(client_game_thread)
             lock2.release()
-            print("released")
     except error as err_msg:
-        conn.shutdown(SHUT_RDWR)
         conn.close()
         print("socket error: " + err_msg)
 
+
+
+""" A function used when creating a game - to accept the players and call their threads 
+    Args: welcome_socket - the welcome socket of the Server - to accept clients and handle their connections 
+    Return: void
+                """
 def accept_clients(welcome_socket):
     lock1 = threading.Lock()
     lock2 = threading.Lock()
@@ -112,6 +149,12 @@ def accept_clients(welcome_socket):
         init_client_thread.start()
     stop.clear()
 
+
+
+""" The function for the first state - the server is building a game by broadcasting offers through UDP
+    Args: welcome_socket - the TCP master socket to accept new clients
+    Return: void
+                """
 def creating_a_game(welcome_socket):
     print("Server started, listening on IP address " + "localhost")
     send_offers_thread = threading.Thread(target=send_offers, args=(welcome_socket.getsockname()[1],))
@@ -121,8 +164,40 @@ def creating_a_game(welcome_socket):
     accept_clients_thread.join(10)
     stop.set()
     accept_clients_thread.join()
-    print("game created")
 
+
+
+""" A function for bonus statistic - printing the best score and the best players from each group and
+    Args: no args
+    Return: void
+                """
+def get_most_points_players():
+    if len(group1) != 0:
+        max_score_1 = max(group1_scores)
+        players_with_max = []
+        for i in range(len(group1_scores)):
+            if group1_scores[i] == max_score_1:
+                players_with_max.append(group1_names[i])
+
+        print("The best score for single competitor in Group 1: " + str(max_score_1))
+        print("These are the champs who got the score: " + "".join(players_with_max))
+
+    if len(group2) != 0:
+        max_score_2 = max(group2_scores)
+        players_with_max = []
+        for i in range(len(group2_scores)):
+            if group2_scores[i] == max_score_2:
+                players_with_max.append(group2_names[i])
+
+        print("The best score for single competitor in Group 2: " + str(max_score_2))
+        print("These are the champs who got the score: " + "".join(players_with_max))
+
+
+
+""" A function that is used in the end of each game - calculating the points and declaring the winner
+    Args: no args
+    Return: void
+                """
 def calculate_and_print_winner():
     group1_result = sum(group1_scores)
     group2_result = sum(group2_scores)
@@ -137,6 +212,12 @@ def calculate_and_print_winner():
 
     print(result_msg + winner_msg)
 
+
+
+""" The function for the second state - the server activates the in_game clients' threads and print statistics
+    Args: no args
+    Return: void
+                """
 def game_mode():
     for thread in group1:
         thread.start()
@@ -148,12 +229,17 @@ def game_mode():
     for thread in group2:
         thread.join(10)
     
+    stop.set()
+
     for thread in group1:
         thread.join()
     for thread in group2:
         thread.join()
 
+    stop.clear()
     calculate_and_print_winner()
+    print("~~ Statisics from the game ~~")
+    get_most_points_players()
 
     group1.clear()
     group2.clear()
@@ -162,6 +248,8 @@ def game_mode():
     group1_scores.clear()
     group2_scores.clear()
     game_connection_sockets.clear()
+
+
 
 if __name__ == "__main__":
     server_states()
