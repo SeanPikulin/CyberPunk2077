@@ -5,6 +5,7 @@ from struct import pack
 from random import random
 from time import sleep
 import errno
+import sys 
 from termcolor import colored, cprint
 
 group1_names = []
@@ -20,7 +21,9 @@ CLIENT_OFFER_PORT = 13117
 BUFFER_SIZE = 2048
 FORMAT = 'IBH'
 stop = threading.Event()
-
+group_1_str = colored("Group 1",'red')
+group_2_str = colored("Group 2", 'blue')
+server_ip = 'localhost'
 
 """ The main function for transition between the server's states - first creating a game, then enter game mode
     Args: no args
@@ -44,7 +47,7 @@ def server_states():
                 """
 def send_offer(udp_socket, offer_msg):
     try:
-        udp_socket.sendto(offer_msg, ('localhost', CLIENT_OFFER_PORT))
+        udp_socket.sendto(offer_msg, (server_ip, CLIENT_OFFER_PORT))
         sleep(1)
     except error as err_msg:
         print("socket error: " + err_msg)
@@ -72,12 +75,17 @@ def send_offers(server_port):
     Return: void
                 """
 def client_in_game(conn, index, group_num):
-    msg = "Welcome to Keyboard Spamming Battle Royale.\nGroup 1:\n==\n" + "".join(group1_names) + "\nGroup2:\n==\n" + "".join(group2_names) + "\nStart pressing keys on your keyboard as fast as you can!!"
+    msg = "Welcome to Keyboard Spamming Battle Royale.\n" + group_1_str + colored(":", "red") +"\n==\n" + "".join(group1_names) + "\n" + group_2_str + colored(":", "blue") +"\n==\n" + "".join(group2_names) + "\nStart pressing keys on your keyboard as fast as you can!!"
     try:
         conn.sendall(msg.encode())
     except error as err_msg:
         conn.close()
         print("error in sending welcome message: " + err_msg)
+        if group_num == 1:
+            name = group1_names[index]
+        else:
+            name = group2_names[index]
+        print("The client " + name + " disconnected from the server..." )
         return
 
     conn.setblocking(0)
@@ -96,6 +104,12 @@ def client_in_game(conn, index, group_num):
                 continue
             else:
                 print("error in receiving character: " + e)
+
+                if group_num == 1:
+                    name = group1_names[index]
+                else:
+                    name = group2_names[index]
+                print("The client " + name + " disconnected from the server..." )
                 break
     conn.close()
 
@@ -109,25 +123,26 @@ def client_in_game(conn, index, group_num):
                 """
 def init_client(conn, lock1, lock2):
     try:
-        client_name = conn.recv(BUFFER_SIZE)
+        client_name = conn.recv(BUFFER_SIZE).decode()
         game_connection_sockets.append(conn)
         if random() < 0.5:
             lock1.acquire()
             client_game_thread = threading.Thread(target=client_in_game, args=(conn,len(group1), 1))
-            group1_names.append(client_name.decode())
+            group1_names.append(colored(client_name, 'cyan'))
             group1_scores.append(0)
             group1.append(client_game_thread)
             lock1.release()
         else:
             lock2.acquire()
             client_game_thread = threading.Thread(target=client_in_game, args=(conn,len(group2), 2))
-            group2_names.append(client_name.decode())
+            group2_names.append(colored(client_name, 'cyan'))
             group2_scores.append(0)
             group2.append(client_game_thread)
             lock2.release()
     except error as err_msg:
         conn.close()
         print("socket error: " + err_msg)
+        print("The client " + client_name + " disconnected from the server..." )
 
 
 
@@ -145,6 +160,9 @@ def accept_clients(welcome_socket):
             err = e.args[0]
             if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
                 continue
+            else:
+                print("The error is: " + err)
+                sys.exit(0)
         init_client_thread = threading.Thread(target=init_client, args=(conn, lock1, lock2))
         init_client_thread.start()
     stop.clear()
@@ -156,7 +174,7 @@ def accept_clients(welcome_socket):
     Return: void
                 """
 def creating_a_game(welcome_socket):
-    print("Server started, listening on IP address " + "localhost")
+    print("Server started, listening on IP address: " + colored(server_ip, attrs=['bold']))
     send_offers_thread = threading.Thread(target=send_offers, args=(welcome_socket.getsockname()[1],))
     accept_clients_thread = threading.Thread(target=accept_clients, args=(welcome_socket,))
     send_offers_thread.start()
@@ -179,7 +197,7 @@ def get_most_points_players():
             if group1_scores[i] == max_score_1:
                 players_with_max.append(group1_names[i])
 
-        print("The best score for single competitor in Group 1: " + str(max_score_1))
+        print("The best score for single competitor in " + group_1_str + colored(': ', 'red') + colored(str(max_score_1), 'red'))
         print("These are the champs who got the score: " + "".join(players_with_max))
 
     if len(group2) != 0:
@@ -189,7 +207,7 @@ def get_most_points_players():
             if group2_scores[i] == max_score_2:
                 players_with_max.append(group2_names[i])
 
-        print("The best score for single competitor in Group 2: " + str(max_score_2))
+        print("The best score for single competitor in " + group_2_str + colored(': ', 'blue') + colored(str(max_score_2), 'blue'))
         print("These are the champs who got the score: " + "".join(players_with_max))
 
 
@@ -202,11 +220,11 @@ def calculate_and_print_winner():
     group1_result = sum(group1_scores)
     group2_result = sum(group2_scores)
     
-    result_msg = "Game over!\nGroup 1 typed in " + str(group1_result) + " characters. Group 2 typed in " + str(group2_result) + " characters.\n"
+    result_msg = "\nGame over!\n" + group_1_str + " typed in " + str(group1_result) + " characters. " + group_2_str + " typed in " + str(group2_result) + " characters.\n"
     if group1_result > group2_result:
-        winner_msg = "Group 1 wins!\n\nCongratulations to the winners:\n==\n" + "".join(group1_names)
+        winner_msg = group_1_str + " wins!\n\nCongratulations to the winners:\n==\n" + "".join(group1_names)
     elif group2_result > group1_result:
-        winner_msg = "Group 2 wins!\n\nCongratulations to the winners:\n==\n" + "".join(group2_names)
+        winner_msg = group_2_str + " wins!\n\nCongratulations to the winners:\n==\n" + "".join(group2_names)
     else:
         winner_msg = "It's a tie!\n\nCongratulations to both teams!"
 
@@ -219,6 +237,7 @@ def calculate_and_print_winner():
     Return: void
                 """
 def game_mode():
+    print("Starting a game! Good luck to both teams!")
     for thread in group1:
         thread.start()
     for thread in group2:
@@ -238,7 +257,7 @@ def game_mode():
 
     stop.clear()
     calculate_and_print_winner()
-    cprint("Statisics from the game", 'blue', attrs=['underline'])
+    cprint("Statisics from the game", 'yellow', attrs=['underline'])
     get_most_points_players()
 
     group1.clear()

@@ -20,6 +20,7 @@ BUFFER_SIZE = 2048
     Return: void
                 """
 def client_states():
+    print("Client started, listening for offer requests...")
     while True:
         server_addr = looking_for_a_server()
         tcp_socket = connecting_to_server(server_addr)
@@ -35,7 +36,6 @@ def client_states():
                                             """
 def looking_for_a_server():
     with socket(AF_INET, SOCK_DGRAM) as client_udp_socket:
-        print("Client started, listening for offer requests...")
         client_udp_socket.bind(('', source_port))
         while True:
             message, (server_ip, _) = client_udp_socket.recvfrom(BUFFER_SIZE)
