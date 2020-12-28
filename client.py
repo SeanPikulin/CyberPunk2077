@@ -37,6 +37,8 @@ def client_states():
 def looking_for_a_server():
     with socket(AF_INET, SOCK_DGRAM) as client_udp_socket:
         client_udp_socket.bind(('', source_port))
+        client_udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
+        client_udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         while True:
             message, (server_ip, _) = client_udp_socket.recvfrom(BUFFER_SIZE)
             rcv_cookie, rcv_message_type, server_port = unpack(FORMAT, message)

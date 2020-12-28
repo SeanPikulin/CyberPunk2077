@@ -23,7 +23,10 @@ FORMAT = 'IBH'
 stop = threading.Event()
 group_1_str = colored("Group 1",'red')
 group_2_str = colored("Group 2", 'blue')
-server_ip = 'localhost'
+server_ip = get_if_addr('wlp2s0') # replace with 'eth1' / 'eth2'
+
+best_players = []
+best_score = 0
 
 """ The main function for transition between the server's states - first creating a game, then enter game mode
     Args: no args
@@ -47,7 +50,10 @@ def server_states():
                 """
 def send_offer(udp_socket, offer_msg):
     try:
-        udp_socket.sendto(offer_msg, (server_ip, CLIENT_OFFER_PORT))
+        subnet_arr = server_ip.split('.')[:-1]
+        subnet_arr.append('255')
+        broadcast_ip = '.'.join(subnet_arr)
+        udp_socket.sendto(offer_msg, (broadcast_ip, CLIENT_OFFER_PORT))
         sleep(1)
     except error as err_msg:
         print("socket error: " + err_msg)
@@ -61,6 +67,7 @@ def send_offer(udp_socket, offer_msg):
 def send_offers(server_port):
     offer_msg = pack(FORMAT, MAGIC_COOKIE, OFFER_MSG_TYPE, server_port)
     with socket(AF_INET, SOCK_DGRAM) as server_udp_socket:
+        server_udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         for _ in range(9):
             send_offers_thread = threading.Thread(target=send_offer, args=(server_udp_socket,offer_msg))
             send_offers_thread.start()
@@ -187,29 +194,41 @@ def creating_a_game(welcome_socket):
 
 """ A function for bonus statistic - printing the best score and the best players from each group and
     Args: no args
-    Return: void
+    Return: array of players with max score 
                 """
 def get_most_points_players():
+    players_with_max_group1 = []
     if len(group1) != 0:
         max_score_1 = max(group1_scores)
-        players_with_max = []
         for i in range(len(group1_scores)):
             if group1_scores[i] == max_score_1:
-                players_with_max.append(group1_names[i])
+                players_with_max_group1.append(group1_names[i])
 
         print("The best score for single competitor in " + group_1_str + colored(': ', 'red') + colored(str(max_score_1), 'red'))
-        print("These are the champs who got the score: " + "".join(players_with_max))
+        print("These are the champs who got the score: " + "".join(players_with_max_group1))
+    else:
+        max_score_1 = 0
 
+    players_with_max_group2 = []
     if len(group2) != 0:
         max_score_2 = max(group2_scores)
-        players_with_max = []
         for i in range(len(group2_scores)):
             if group2_scores[i] == max_score_2:
-                players_with_max.append(group2_names[i])
+                players_with_max_group2.append(group2_names[i])
 
         print("The best score for single competitor in " + group_2_str + colored(': ', 'blue') + colored(str(max_score_2), 'blue'))
-        print("These are the champs who got the score: " + "".join(players_with_max))
-
+        print("These are the champs who got the score: " + "".join(players_with_max_group2))
+    else:
+        max_score_2 = 0
+    
+    if max_score_1 > max_score_2:
+        return players_with_max_group1, max_score_1
+    
+    elif max_score_2 > max_score_1:
+        return players_with_max_group2, max_score_2
+    
+    else:
+        return players_with_max_group1 + players_with_max_group2, max_score_1
 
 
 """ A function that is used in the end of each game - calculating the points and declaring the winner
@@ -231,6 +250,22 @@ def calculate_and_print_winner():
     print(result_msg + winner_msg)
 
 
+
+""" The function for updating the best players ever statistics
+    Args: curr_max_arr: last game's best players
+          curr_max_score: last game's best score 
+    Return: void
+                """
+def update_best_players(curr_max_arr, curr_max_score):
+    global best_score
+    global best_players
+    if curr_max_score > best_score:
+        best_score = curr_max_score
+        best_players = curr_max_arr
+
+    elif curr_max_score == best_score:
+        best_players = list(set(best_players + curr_max_arr))
+       
 
 """ The function for the second state - the server activates the in_game clients' threads and print statistics
     Args: no args
@@ -258,7 +293,9 @@ def game_mode():
     stop.clear()
     calculate_and_print_winner()
     cprint("Statisics from the game", 'yellow', attrs=['underline'])
-    get_most_points_players()
+    curr_max_arr, curr_max_score = get_most_points_players()
+    update_best_players(curr_max_arr, curr_max_score)
+    print("Current best players ever (with score " + colored(str(best_score), attrs=['bold']) + "):\n" + "".join(best_players))
 
     group1.clear()
     group2.clear()
