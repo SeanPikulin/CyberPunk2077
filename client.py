@@ -4,8 +4,7 @@ import threading
 from multiprocessing import Process
 from struct import unpack
 import errno
-from pynput.keyboard import Listener
-from sys import stdout
+import getch
 from termcolor import colored
 
 CLIENT_NAME= "CyberPunk2077\n"
@@ -73,9 +72,11 @@ def connecting_to_server(serverAddress):
           tcp_socket - the socket that connects to the server
     Return: False - thrown when the thread stops working
                                                             """
-def on_press(key, tcp_socket):
+def get_from_keyboard(tcp_socket):
     try:
-        tcp_socket.sendall(str(key).encode())
+        while True:
+            key = getch.getch()
+            tcp_socket.sendall(str(key).encode())
     except error:
         return False
 
@@ -132,14 +133,12 @@ def game_mode(tcp_socket):
 
 
     get_msgs_from_server_thread = threading.Thread(target=get_msgs_from_server, args=(tcp_socket,))
-    listener = Listener(on_press=lambda key: on_press(key, tcp_socket))
-        
+    get_from_keyboard_thread = Process(target = get_from_keyboard, args=(tcp_socket,))
+    get_from_keyboard_thread.start()
     get_msgs_from_server_thread.start()
-    listener.start()
 
     get_msgs_from_server_thread.join()
-    listener.stop()
-    listener.join()
+    get_from_keyboard_thread.terminate()
     tcp_socket.close()
 
     print("\nServer disconnected, listening for offer requests...")
