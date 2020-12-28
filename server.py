@@ -5,7 +5,6 @@ from struct import pack
 from random import random
 from time import sleep
 import errno
-from numpy import max
 from termcolor import colored, cprint
 
 group1_names = []
