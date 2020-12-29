@@ -9,9 +9,9 @@ from termcolor import colored
 
 CLIENT_NAME= "CyberPunk2077\n"
 source_port = 13117 
-FORMAT = 'IBH'
+FORMAT = '!IcH'
 MAGIC_COOKIE = 0xfeedbeef
-OFFER_MSG_TYPE = 0x02
+OFFER_MSG_TYPE = b'\x02'
 BUFFER_SIZE = 2048
 
 
@@ -41,7 +41,11 @@ def looking_for_a_server():
         client_udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         while True:
             message, (server_ip, _) = client_udp_socket.recvfrom(BUFFER_SIZE)
-            rcv_cookie, rcv_message_type, server_port = unpack(FORMAT, message)
+            print(len(message))
+            try:
+                rcv_cookie, rcv_message_type, server_port = unpack(FORMAT, message)
+            except struct.error as struct_error:
+                continue
             if rcv_cookie != MAGIC_COOKIE:
                 continue
             if rcv_message_type != OFFER_MSG_TYPE:
@@ -79,7 +83,8 @@ def get_from_keyboard(tcp_socket):
         while True:
             key = getch.getch()
             tcp_socket.sendall(str(key).encode())
-    except error:
+    except error as err:
+        print("socket error in receiving keyboard input: " + str(err))
         return False
 
 
@@ -97,6 +102,7 @@ def get_msgs_from_server(socket):
             if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
                 continue
             else:
+                print("socket error in receiving server input: " + str(e))
                 break
         if not new_msg:
             break
@@ -141,6 +147,7 @@ def game_mode(tcp_socket):
 
     get_msgs_from_server_thread.join()
     get_from_keyboard_thread.terminate()
+    get_from_keyboard_thread.join()
     tcp_socket.close()
 
     print("\nServer disconnected, listening for offer requests...")
