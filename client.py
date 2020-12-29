@@ -4,7 +4,10 @@ import threading
 from multiprocessing import Process
 from struct import unpack
 import errno
-import getch
+# import getch
+from terminos import tcgetattr, tcsetattr
+from tty import setraw
+import sys, tty 
 from termcolor import colored
 
 CLIENT_NAME= "CyberPunk2077\n"
@@ -73,6 +76,25 @@ def connecting_to_server(serverAddress):
     return client_tcp_socket
 
 
+
+""" The function for reading input from stdin
+    Args: no args
+    Return:  the read char
+                                                """
+def read_from_stdin():
+    fd = sys.stdin.fileno()
+    save_state = tcgetattr(fd)
+    try:
+        setraw(fd)
+        read_char = sys.stdin.read(1)
+    except err:
+        print("error reading input:" + str(err))
+    finally:
+        tcsetattr(fd, termios.TCSADRAIN, save_state)
+    return read_char
+
+
+
 """ The function for the reading from keyboard thread - reads charachters and sends them to the server with the socket
     Args: key - key that was pressed
           tcp_socket - the socket that connects to the server
@@ -81,7 +103,8 @@ def connecting_to_server(serverAddress):
 def get_from_keyboard(tcp_socket):
     try:
         while True:
-            key = getch.getch()
+            # key = getch.getch()
+            key = read_from_stdin()
             tcp_socket.sendall(str(key).encode())
     except error as err:
         print("socket error in receiving keyboard input: " + str(err))
