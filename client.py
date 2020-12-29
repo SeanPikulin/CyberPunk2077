@@ -5,7 +5,7 @@ from multiprocessing import Process
 from struct import unpack
 import errno
 # import getch
-from terminos import tcgetattr, tcsetattr
+from termios import tcgetattr, tcsetattr
 from tty import setraw
 import sys, tty 
 from termcolor import colored
