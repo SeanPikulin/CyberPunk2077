@@ -5,7 +5,7 @@ from multiprocessing import Process
 from struct import unpack
 import errno
 # import getch
-from termios import tcgetattr, tcsetattr
+import termios
 from tty import setraw
 import sys, tty 
 from termcolor import colored
@@ -81,16 +81,11 @@ def connecting_to_server(serverAddress):
     Args: no args
     Return:  the read char
                                                 """
-def read_from_stdin():
-    fd = sys.stdin.fileno()
-    save_state = tcgetattr(fd)
+def read_from_stdin(fd):
     try:
-        setraw(fd)
         read_char = sys.stdin.read(1)
-    except err:
+    except error as err:
         print("error reading input:" + str(err))
-    finally:
-        tcsetattr(fd, termios.TCSADRAIN, save_state)
     return read_char
 
 
@@ -101,13 +96,21 @@ def read_from_stdin():
     Return: False - thrown when the thread stops working
                                                             """
 def get_from_keyboard(tcp_socket):
+    fd = sys.stdin.fileno()
+    save_state = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(sys.stdin.fileno())
+    except:
+        print("Unknown error")
     try:
         while True:
             # key = getch.getch()
-            key = read_from_stdin()
+            key = read_from_stdin(fd)
             tcp_socket.sendall(str(key).encode())
     except error as err:
         print("socket error in receiving keyboard input: " + str(err))
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, save_state)
         return False
 
 
