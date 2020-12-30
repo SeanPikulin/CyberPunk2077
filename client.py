@@ -9,6 +9,7 @@ import termios
 from tty import setraw
 import sys, tty
 from termcolor import colored
+from time import sleep
 import select
 import os
 
@@ -45,6 +46,7 @@ def looking_for_a_server():
         client_udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         client_udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         while True:
+            sleep(0.1)
             message, (server_ip, _) = client_udp_socket.recvfrom(BUFFER_SIZE)
             try:
                 rcv_cookie, rcv_message_type, server_port = unpack(FORMAT, message)
@@ -104,6 +106,7 @@ def get_from_keyboard(tcp_socket, fd):
         print("Unknown error")
     try:
         while True:
+            sleep(0.1)
             # key = getch.getch()
             key = read_from_stdin()
             if not key:
@@ -124,6 +127,7 @@ def get_from_keyboard(tcp_socket, fd):
 def get_msgs_from_server(socket):
     while True:
         try:
+            sleep(0.1)
             new_msg = socket.recv(BUFFER_SIZE)
         except error as e:
             err = e.args[0]
@@ -154,6 +158,7 @@ def game_mode(tcp_socket):
         
     while not is_received:
         try:
+            sleep(0.1)
             start_game_msg = tcp_socket.recv(BUFFER_SIZE)
             print(start_game_msg.decode())
             is_received = True

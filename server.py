@@ -23,7 +23,7 @@ FORMAT = '!IcH'
 stop = threading.Event()
 group_1_str = colored("Group 1",'red')
 group_2_str = colored("Group 2", 'blue')
-server_ip = get_if_addr('wlp2s0') # replace with 'eth1' / 'eth2'
+server_ip = get_if_addr('eth1') # replace with 'eth1' / 'eth2'
 
 best_players = []
 best_score = 0
@@ -50,8 +50,8 @@ def server_states():
                 """
 def send_offer(udp_socket, offer_msg):
     try:
-        subnet_arr = server_ip.split('.')[:-1]
-        # subnet_arr.append('255')
+        subnet_arr = server_ip.split('.')[:-2]
+        subnet_arr.append('255')
         subnet_arr.append('255')
         broadcast_ip = '.'.join(subnet_arr)
         udp_socket.sendto(offer_msg, (broadcast_ip, CLIENT_OFFER_PORT))
@@ -101,6 +101,7 @@ def client_in_game(conn, index, group_num):
     conn.setblocking(0)
     while not stop.is_set():
         try:
+            sleep(0.1)
             x = conn.recv(BUFFER_SIZE)
             if not x:
                 conn.close()
@@ -158,7 +159,6 @@ def init_client(conn, lock1, lock2):
         conn.close()
         conn_index = game_connection_sockets.index([conn, True])
         game_connection_sockets[conn_index] = [conn, False]
-        print
         print("socket error: " + err_msg)
         print("The client " + client_name + " disconnected from the server..." )
 
@@ -173,6 +173,7 @@ def accept_clients(welcome_socket):
     lock2 = threading.Lock()
     while not stop.is_set():
         try:
+            sleep(0.1)
             conn, _ = welcome_socket.accept()
         except error as e:
             err = e.args[0]
@@ -290,7 +291,7 @@ def send_to_all(msg):
     try:
         for socket_two_list in game_connection_sockets:
             if socket_two_list[1]:
-                socket.sendall(msg.encode())
+                socket_two_list[0].sendall(msg.encode())
     except error as err:
         print("error sending message: " + err)
 
