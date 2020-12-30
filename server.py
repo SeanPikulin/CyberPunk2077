@@ -23,7 +23,7 @@ FORMAT = '!IcH'
 stop = threading.Event()
 group_1_str = colored("Group 1",'red')
 group_2_str = colored("Group 2", 'blue')
-server_ip = get_if_addr('eth1') # replace with 'eth1' / 'eth2'
+server_ip = get_if_addr('wlp2s0') # replace with 'eth1' / 'eth2'
 
 best_players = []
 best_score = 0
@@ -50,8 +50,8 @@ def server_states():
                 """
 def send_offer(udp_socket, offer_msg):
     try:
-        subnet_arr = server_ip.split('.')[:-2]
-        subnet_arr.append('255')
+        subnet_arr = server_ip.split('.')[:-1]
+        # subnet_arr.append('255')
         subnet_arr.append('255')
         broadcast_ip = '.'.join(subnet_arr)
         udp_socket.sendto(offer_msg, (broadcast_ip, CLIENT_OFFER_PORT))
@@ -88,8 +88,8 @@ def client_in_game(conn, index, group_num):
         conn.sendall(msg.encode())
     except error as err_msg:
         conn.close()
-        conn_index = game_connection_sockets.index((conn, True))
-        game_connection_sockets[conn_index][1] = False
+        conn_index = game_connection_sockets.index([conn, True])
+        game_connection_sockets[conn_index] = [conn, False]
         print("error in sending welcome message: " + err_msg)
         if group_num == 1:
             name = group1_names[index]
@@ -103,6 +103,9 @@ def client_in_game(conn, index, group_num):
         try:
             x = conn.recv(BUFFER_SIZE)
             if not x:
+                conn.close()
+                conn_index = game_connection_sockets.index([conn, True])
+                game_connection_sockets[conn_index] = [conn, False]
                 break
             if group_num == 1:
                 group1_scores[index] += 1
@@ -121,8 +124,8 @@ def client_in_game(conn, index, group_num):
                     name = group2_names[index]
                 print("The client " + name + " disconnected from the server..." )
                 conn.close()
-                conn_index = game_connection_sockets.index((conn, True))
-                game_connection_sockets[conn_index][1] = False
+                conn_index = game_connection_sockets.index([conn, True])
+                game_connection_sockets[conn_index] = [conn, False]
                 break
 
 
@@ -136,7 +139,7 @@ def client_in_game(conn, index, group_num):
 def init_client(conn, lock1, lock2):
     try:
         client_name = conn.recv(BUFFER_SIZE).decode()
-        game_connection_sockets.append((conn, True))
+        game_connection_sockets.append([conn, True])
         if random() < 0.5:
             lock1.acquire()
             client_game_thread = threading.Thread(target=client_in_game, args=(conn,len(group1), 1))
@@ -153,8 +156,9 @@ def init_client(conn, lock1, lock2):
             lock2.release()
     except error as err_msg:
         conn.close()
-        conn_index = game_connection_sockets.index((conn, True))
-        game_connection_sockets[conn_index][1] = False
+        conn_index = game_connection_sockets.index([conn, True])
+        game_connection_sockets[conn_index] = [conn, False]
+        print
         print("socket error: " + err_msg)
         print("The client " + client_name + " disconnected from the server..." )
 
@@ -284,8 +288,8 @@ def update_best_players(curr_max_arr, curr_max_score):
                 """
 def send_to_all(msg):
     try:
-        for socket, isOpen in game_connection_sockets:
-            if isOpen:
+        for socket_two_list in game_connection_sockets:
+            if socket_two_list[1]:
                 socket.sendall(msg.encode())
     except error as err:
         print("error sending message: " + err)
