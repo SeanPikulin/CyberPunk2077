@@ -119,7 +119,6 @@ def client_in_game(conn, index, group_num):
                     name = group2_names[index]
                 print("The client " + name + " disconnected from the server..." )
                 break
-    conn.close()
 
 
 
@@ -205,8 +204,9 @@ def get_most_points_players():
             if group1_scores[i] == max_score_1:
                 players_with_max_group1.append(group1_names[i])
 
-        print("The best score for single competitor in " + group_1_str + colored(': ', 'red') + colored(str(max_score_1), 'red'))
-        print("These are the champs who got the score: " + "".join(players_with_max_group1))
+        get_most_points_msg = "The best score for single competitor in " + group_1_str + colored(': ', 'red') + colored(str(max_score_1), 'red') + "\nThese are the champs who got the score: " + "".join(players_with_max_group1)
+        send_to_all(get_most_points_msg)
+        print(get_most_points_msg)
     else:
         max_score_1 = 0
 
@@ -217,8 +217,9 @@ def get_most_points_players():
             if group2_scores[i] == max_score_2:
                 players_with_max_group2.append(group2_names[i])
 
-        print("The best score for single competitor in " + group_2_str + colored(': ', 'blue') + colored(str(max_score_2), 'blue'))
-        print("These are the champs who got the score: " + "".join(players_with_max_group2))
+        get_most_points_msg = "The best score for single competitor in " + group_2_str + colored(': ', 'blue') + colored(str(max_score_2), 'blue') + "\nThese are the champs who got the score: " + "".join(players_with_max_group2)
+        send_to_all(get_most_points_msg)
+        print(get_most_points_msg)
     else:
         max_score_2 = 0
     
@@ -246,9 +247,10 @@ def calculate_and_print_winner():
     elif group2_result > group1_result:
         winner_msg = group_2_str + " wins!\n\nCongratulations to the winners:\n==\n" + "".join(group2_names)
     else:
-        winner_msg = "It's a tie!\n\nCongratulations to both teams!"
-
-    print(result_msg + winner_msg)
+        winner_msg = "It's a tie!\n\nCongratulations to both teams!\n"
+    msg = result_msg + winner_msg
+    send_to_all(msg)
+    print(msg)
 
 
 
@@ -266,7 +268,15 @@ def update_best_players(curr_max_arr, curr_max_score):
 
     elif curr_max_score == best_score:
         best_players = list(set(best_players + curr_max_arr))
-       
+
+def send_to_all(msg):
+    try:
+        for socket in game_connection_sockets:
+                socket.sendall(msg.encode())
+    except error as err:
+        print("error sending message: " + err)
+
+
 
 """ The function for the second state - the server activates the in_game clients' threads and print statistics
     Args: no args
@@ -293,10 +303,20 @@ def game_mode():
 
     stop.clear()
     calculate_and_print_winner()
-    cprint("Statisics from the game", 'yellow', attrs=['underline'])
+    statistics = colored("Statisics from the game", 'yellow', attrs=['underline'])
+    send_to_all(statistics)
+    print(statistics)
     curr_max_arr, curr_max_score = get_most_points_players()
     update_best_players(curr_max_arr, curr_max_score)
-    print("Current best players ever (with score " + colored(str(best_score), attrs=['bold']) + "):\n" + "".join(best_players))
+    best_players_msg = "Current best players ever (with score " + colored(str(best_score), attrs=['bold']) + "):\n" + "".join(best_players)
+    send_to_all(best_players_msg)
+    print(best_players_msg)
+
+    seperator = colored("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", 'magenta')
+    send_to_all(seperator)
+    print(seperator)
+    for socket in game_connection_sockets:
+        socket.close()
 
     group1.clear()
     group2.clear()
@@ -305,7 +325,6 @@ def game_mode():
     group1_scores.clear()
     group2_scores.clear()
     game_connection_sockets.clear()
-    cprint("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", 'magenta')
 
 
 

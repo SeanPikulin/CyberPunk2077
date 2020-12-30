@@ -7,8 +7,10 @@ import errno
 # import getch
 import termios
 from tty import setraw
-import sys, tty 
+import sys, tty
 from termcolor import colored
+import select
+import os
 
 CLIENT_NAME= "CyberPunk2077\n"
 source_port = 13117 
@@ -44,7 +46,6 @@ def looking_for_a_server():
         client_udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         while True:
             message, (server_ip, _) = client_udp_socket.recvfrom(BUFFER_SIZE)
-            print(len(message))
             try:
                 rcv_cookie, rcv_message_type, server_port = unpack(FORMAT, message)
             except struct.error as struct_error:
@@ -81,9 +82,9 @@ def connecting_to_server(serverAddress):
     Args: no args
     Return:  the read char
                                                 """
-def read_from_stdin(fd):
+def read_from_stdin():
     try:
-        read_char = sys.stdin.read(1)
+        read_char = os.read(0, 1)
     except error as err:
         print("error reading input:" + str(err))
     return read_char
@@ -95,17 +96,18 @@ def read_from_stdin(fd):
           tcp_socket - the socket that connects to the server
     Return: False - thrown when the thread stops working
                                                             """
-def get_from_keyboard(tcp_socket):
-    fd = sys.stdin.fileno()
+def get_from_keyboard(tcp_socket, fd):
     save_state = termios.tcgetattr(fd)
     try:
-        tty.setcbreak(sys.stdin.fileno())
+        tty.setcbreak(fd)
     except:
         print("Unknown error")
     try:
         while True:
             # key = getch.getch()
-            key = read_from_stdin(fd)
+            key = read_from_stdin()
+            if not key:
+                continue
             tcp_socket.sendall(str(key).encode())
     except error as err:
         print("socket error in receiving keyboard input: " + str(err))
@@ -165,9 +167,9 @@ def game_mode(tcp_socket):
                 print("socket error: " + err_msg)
                 return None
 
-
+    fd = sys.stdin.fileno()
     get_msgs_from_server_thread = threading.Thread(target=get_msgs_from_server, args=(tcp_socket,))
-    get_from_keyboard_thread = Process(target = get_from_keyboard, args=(tcp_socket,))
+    get_from_keyboard_thread = Process(target = get_from_keyboard, args=(tcp_socket,fd))
     get_from_keyboard_thread.start()
     get_msgs_from_server_thread.start()
 
