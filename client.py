@@ -97,7 +97,7 @@ def read_from_stdin(fd):
                                                             """
 def get_from_keyboard(tcp_socket):
     fd = sys.stdin.fileno()
-    save_state = termios.tcgetattr(fd)
+    save_state = termios.tcgetattr(sys.stdin)
     try:
         tty.setcbreak(sys.stdin.fileno())
     except:

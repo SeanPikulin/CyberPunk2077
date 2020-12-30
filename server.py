@@ -23,7 +23,7 @@ FORMAT = '!IcH'
 stop = threading.Event()
 group_1_str = colored("Group 1",'red')
 group_2_str = colored("Group 2", 'blue')
-server_ip = get_if_addr('wlp2s0') # replace with 'eth1' / 'eth2'
+server_ip = get_if_addr('eth1') # replace with 'eth1' / 'eth2'
 
 best_players = []
 best_score = 0
