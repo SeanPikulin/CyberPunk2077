@@ -50,9 +50,9 @@ def server_states():
                 """
 def send_offer(udp_socket, offer_msg):
     try:
-        subnet_arr = server_ip.split('.')[:-1]
+        subnet_arr = server_ip.split('.')[:-2]
         subnet_arr.append('255')
-        # subnet_arr.append('255')
+        subnet_arr.append('255')
         broadcast_ip = '.'.join(subnet_arr)
         udp_socket.sendto(offer_msg, (broadcast_ip, CLIENT_OFFER_PORT))
         sleep(1)
@@ -88,6 +88,8 @@ def client_in_game(conn, index, group_num):
         conn.sendall(msg.encode())
     except error as err_msg:
         conn.close()
+        conn_index = game_connection_sockets.index((conn, True))
+        game_connection_sockets[conn_index][1] = False
         print("error in sending welcome message: " + err_msg)
         if group_num == 1:
             name = group1_names[index]
@@ -118,6 +120,9 @@ def client_in_game(conn, index, group_num):
                 else:
                     name = group2_names[index]
                 print("The client " + name + " disconnected from the server..." )
+                conn.close()
+                conn_index = game_connection_sockets.index((conn, True))
+                game_connection_sockets[conn_index][1] = False
                 break
 
 
@@ -131,7 +136,7 @@ def client_in_game(conn, index, group_num):
 def init_client(conn, lock1, lock2):
     try:
         client_name = conn.recv(BUFFER_SIZE).decode()
-        game_connection_sockets.append(conn)
+        game_connection_sockets.append((conn, True))
         if random() < 0.5:
             lock1.acquire()
             client_game_thread = threading.Thread(target=client_in_game, args=(conn,len(group1), 1))
@@ -148,6 +153,8 @@ def init_client(conn, lock1, lock2):
             lock2.release()
     except error as err_msg:
         conn.close()
+        conn_index = game_connection_sockets.index((conn, True))
+        game_connection_sockets[conn_index][1] = False
         print("socket error: " + err_msg)
         print("The client " + client_name + " disconnected from the server..." )
 
@@ -269,9 +276,16 @@ def update_best_players(curr_max_arr, curr_max_score):
     elif curr_max_score == best_score:
         best_players = list(set(best_players + curr_max_arr))
 
+
+
+""" A function for sending data to all of the connected clients
+    Args: msg - the message to send
+    Return: void
+                """
 def send_to_all(msg):
     try:
-        for socket in game_connection_sockets:
+        for socket, isOpen in game_connection_sockets:
+            if isOpen:
                 socket.sendall(msg.encode())
     except error as err:
         print("error sending message: " + err)
@@ -303,20 +317,21 @@ def game_mode():
 
     stop.clear()
     calculate_and_print_winner()
-    statistics = colored("Statisics from the game", 'yellow', attrs=['underline'])
+    statistics = colored("\nStatisics from the game\n\n", 'yellow', attrs=['underline'])
     send_to_all(statistics)
     print(statistics)
     curr_max_arr, curr_max_score = get_most_points_players()
     update_best_players(curr_max_arr, curr_max_score)
-    best_players_msg = "Current best players ever (with score " + colored(str(best_score), attrs=['bold']) + "):\n" + "".join(best_players)
+    best_players_msg = "\nCurrent best players ever (with score " + colored(str(best_score), attrs=['bold']) + "):\n" + "".join(best_players)
     send_to_all(best_players_msg)
     print(best_players_msg)
 
     seperator = colored("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", 'magenta')
     send_to_all(seperator)
     print(seperator)
-    for socket in game_connection_sockets:
-        socket.close()
+    for socket, isOpen in game_connection_sockets:
+        if isOpen:
+            socket.close()
 
     group1.clear()
     group2.clear()
