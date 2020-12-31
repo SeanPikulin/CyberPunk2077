@@ -24,7 +24,7 @@ stop = threading.Event()
 group_1_str = colored("Group 1",'red')
 group_2_str = colored("Group 2", 'blue')
 server_ip = get_if_addr('eth1') # replace with 'eth1' / 'eth2'
-
+time_to_wait = 10
 best_players = []
 best_score = 0
 
@@ -101,7 +101,8 @@ def client_in_game(conn, index, group_num):
     conn.setblocking(0)
     while not stop.is_set():
         try:
-            sleep(0.1)
+            # using sleep to avoid terminate beacuse of while loop
+            sleep(0.1) 
             x = conn.recv(BUFFER_SIZE)
             if not x:
                 conn.close()
@@ -173,6 +174,7 @@ def accept_clients(welcome_socket):
     lock2 = threading.Lock()
     while not stop.is_set():
         try:
+            # using sleep to avoid terminate beacuse of while loop
             sleep(0.1)
             conn, _ = welcome_socket.accept()
         except error as e:
@@ -198,7 +200,7 @@ def creating_a_game(welcome_socket):
     accept_clients_thread = threading.Thread(target=accept_clients, args=(welcome_socket,))
     send_offers_thread.start()
     accept_clients_thread.start()
-    accept_clients_thread.join(10)
+    accept_clients_thread.join(time_to_wait)
     stop.set()
     accept_clients_thread.join()
 
@@ -309,9 +311,9 @@ def game_mode():
         thread.start()
 
     for thread in group1:
-        thread.join(10)
+        thread.join(time_to_wait)
     for thread in group2:
-        thread.join(10)
+        thread.join(time_to_wait)
     
     stop.set()
 

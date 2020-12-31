@@ -4,7 +4,6 @@ import threading
 from multiprocessing import Process
 from struct import unpack
 import errno
-# import getch
 import termios
 from tty import setraw
 import sys, tty
@@ -19,7 +18,7 @@ FORMAT = '!IcH'
 MAGIC_COOKIE = 0xfeedbeef
 OFFER_MSG_TYPE = b'\x02'
 BUFFER_SIZE = 2048
-
+STDIN_fileNum = sys.stdin.fileno()
 
 """ The main function for transition between the client's states - first looking for a server, then connecting and after it being in game mode
     Args: no args
@@ -46,6 +45,7 @@ def looking_for_a_server():
         client_udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         client_udp_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         while True:
+            # using sleep to avoid terminate beacuse of while loop
             sleep(0.1)
             message, (server_ip, _) = client_udp_socket.recvfrom(BUFFER_SIZE)
             try:
@@ -86,7 +86,7 @@ def connecting_to_server(serverAddress):
                                                 """
 def read_from_stdin():
     try:
-        read_char = os.read(0, 1)
+        read_char = os.read(STDIN_fileNum, 1)
     except error as err:
         print("error reading input:" + str(err))
     return read_char
@@ -106,8 +106,8 @@ def get_from_keyboard(tcp_socket, fd):
         print("Unknown error")
     try:
         while True:
+            # using sleep to avoid terminate beacuse of while loop
             sleep(0.1)
-            # key = getch.getch()
             key = read_from_stdin()
             if not key:
                 continue
@@ -127,6 +127,7 @@ def get_from_keyboard(tcp_socket, fd):
 def get_msgs_from_server(socket):
     while True:
         try:
+            # using sleep to avoid terminate beacuse of while loop
             sleep(0.1)
             new_msg = socket.recv(BUFFER_SIZE)
         except error as e:
@@ -158,6 +159,7 @@ def game_mode(tcp_socket):
         
     while not is_received:
         try:
+            # using sleep to avoid terminate beacuse of while loop
             sleep(0.1)
             start_game_msg = tcp_socket.recv(BUFFER_SIZE)
             print(start_game_msg.decode())
