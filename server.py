@@ -218,7 +218,7 @@ def get_most_points_players():
             if group1_scores[i] == max_score_1:
                 players_with_max_group1.append(group1_names[i])
 
-        get_most_points_msg = "The best score for single competitor in " + group_1_str + colored(': ', 'red') + colored(str(max_score_1), 'red') + "\nThese are the champs who got the score:\n " + "".join(players_with_max_group1)
+        get_most_points_msg = "The best score for single competitor in " + group_1_str + colored(': ', 'red') + colored(str(max_score_1), 'red') + "\nThese are the champs who got the score:\n" + "".join(players_with_max_group1)
         send_to_all(get_most_points_msg)
         print(get_most_points_msg)
     else:
@@ -231,7 +231,7 @@ def get_most_points_players():
             if group2_scores[i] == max_score_2:
                 players_with_max_group2.append(group2_names[i])
 
-        get_most_points_msg = "The best score for single competitor in " + group_2_str + colored(': ', 'blue') + colored(str(max_score_2), 'blue') + "\nThese are the champs who got the score:\n " + "".join(players_with_max_group2)
+        get_most_points_msg = "The best score for single competitor in " + group_2_str + colored(': ', 'blue') + colored(str(max_score_2), 'blue') + "\nThese are the champs who got the score:\n" + "".join(players_with_max_group2)
         send_to_all(get_most_points_msg)
         print(get_most_points_msg)
     else:
